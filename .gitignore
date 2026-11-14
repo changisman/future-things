@@ -1,0 +1,12 @@
+# 비밀 키
+.env
+
+# 설치 파일
+node_modules/
+
+# 학생 작품 (서버에서 자동 생성)
+작품/
+
+# macOS / 도구
+.DS_Store
+.claude/

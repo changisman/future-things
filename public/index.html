@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미래 물건 상상 놀이터</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>🚀 미래 물건 상상 놀이터</h1>
+  <nav hidden id="nav">
+    <span id="hello"></span>
+    <button class="tab active" data-view="play">상상하기</button>
+    <button class="tab" data-view="gallery">친구들 작품 구경</button>
+  </nav>
+</header>
+
+<!-- 1. 이름 입력 -->
+<section id="view-name" class="view card center">
+  <p class="big">안녕! 이름을 알려 줄래?</p>
+  <form id="name-form">
+    <input id="name-input" maxlength="20" placeholder="내 이름" autocomplete="off" required>
+    <button type="submit" class="primary">시작하기</button>
+  </form>
+</section>
+
+<!-- 2~6. 상상하기 -->
+<section id="view-play" class="view" hidden>
+  <div class="grid">
+    <div class="card object-card">
+      <h2>오늘의 물건: <span id="object-name"></span></h2>
+      <img id="object-img" alt="">
+      <button id="change-btn" class="ghost">🔄 너무 어려워요! 다른 물건으로 바꿀래요</button>
+    </div>
+
+    <div class="card chat-card">
+      <h2>💬 로봇 친구와 이야기하기</h2>
+      <div id="chat-log"></div>
+      <form id="chat-form">
+        <input id="chat-input" placeholder="생각을 써 보세요" autocomplete="off">
+        <button type="submit" class="primary">보내기</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>✏️ 내 생각 정리하기</h2>
+    <label>🔒 바뀌지 않아야 할 물건의 쓰임새
+      <textarea id="keep" rows="3" placeholder="예) 옷을 깨끗하게 빨아 주는 일은 꼭 해야 해요."></textarea>
+    </label>
+    <label>✨ 이렇게 바뀌면 더 편리할 것 같아요
+      <textarea id="improve" rows="3" placeholder="예) 옷을 넣으면 알아서 개켜서 서랍에 넣어 주면 좋겠어요."></textarea>
+    </label>
+    <button id="generate-btn" class="primary big-btn">🎨 미래 물건 그림 만들기</button>
+    <p id="status" class="status"></p>
+    <div id="result" hidden>
+      <h2>🌟 <span id="result-title"></span></h2>
+      <img id="result-img" alt="">
+    </div>
+  </div>
+</section>
+
+<!-- 7. 갤러리 -->
+<section id="view-gallery" class="view" hidden>
+  <div class="gallery-head">
+    <h2>🖼️ 친구들이 상상한 미래 물건</h2>
+    <button id="refresh-btn" class="ghost">새로고침</button>
+  </div>
+  <div id="gallery" class="gallery"></div>
+</section>
+
+<dialog id="detail">
+  <img id="detail-img" alt="">
+  <h3 id="detail-title"></h3>
+  <p><b>🔒 바뀌지 않아야 할 쓰임새</b><br><span id="detail-keep"></span></p>
+  <p><b>✨ 바뀌면 좋을 점</b><br><span id="detail-improve"></span></p>
+  <form method="dialog"><button class="primary">닫기</button></form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
