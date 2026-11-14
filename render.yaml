@@ -1,0 +1,17 @@
+# Render 배포 설정 (Blueprint)
+services:
+  - type: web
+    name: future-things
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/config
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CLASS_PASSWORD
+        sync: false

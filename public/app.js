@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 
 const state = {
   name: "",
+  password: "",
   objects: [],
   current: null,
   messages: [], // Claude에 보내는 대화 (user/assistant)
@@ -15,20 +16,38 @@ function show(view) {
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
 
-// ---------- 1. 이름 ----------
+// 모든 서버 요청에 반 비밀번호를 함께 보냄
+function api(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), "x-class-password": encodeURIComponent(state.password) },
+  });
+}
+
+// ---------- 1. 이름 (+ 반 비밀번호) ----------
 $("name-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   state.name = $("name-input").value.trim();
+  state.password = $("password-input").value.trim();
   if (!state.name) return;
-  try { sessionStorage.setItem("name", state.name); } catch {}
   await start();
 });
 
 async function start() {
+  const res = await api("/api/objects");
+  if (res.status === 401) {
+    $("view-name").hidden = false;
+    $("name-error").textContent = "반 비밀번호가 틀렸어요. 선생님께 다시 물어보세요.";
+    return;
+  }
+  try {
+    sessionStorage.setItem("name", state.name);
+    sessionStorage.setItem("password", state.password);
+  } catch {}
+  $("name-error").textContent = "";
+  state.objects = await res.json();
   $("hello").textContent = `${state.name}의 상상 공간`;
   $("nav").hidden = false;
-  const res = await fetch("/api/objects");
-  state.objects = await res.json();
   pickObject();
   show("play");
 }
@@ -105,7 +124,7 @@ $("chat-form").addEventListener("submit", async (e) => {
   btn.disabled = true;
   const typing = addMsg("생각하는 중...", "bot typing");
   try {
-    const res = await fetch("/api/chat", {
+    const res = await api("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: state.name, object: state.current.name, messages: state.messages }),
@@ -137,7 +156,7 @@ $("generate-btn").addEventListener("click", async () => {
   $("status").textContent = "🎨 미래 물건을 그리고 있어요... (1분 정도 걸려요)";
   $("result").hidden = true;
   try {
-    const res = await fetch("/api/generate", {
+    const res = await api("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: state.name, object: state.current.name, keep, improve }),
@@ -157,7 +176,7 @@ $("generate-btn").addEventListener("click", async () => {
 
 // ---------- 7. 갤러리 ----------
 async function loadGallery() {
-  const res = await fetch("/api/gallery");
+  const res = await api("/api/gallery");
   const items = await res.json();
   const box = $("gallery");
   box.innerHTML = "";
@@ -191,8 +210,17 @@ function openDetail(it) {
   $("detail").showModal();
 }
 
-// 새로고침해도 이름 유지
-try {
-  const saved = sessionStorage.getItem("name");
-  if (saved) { state.name = saved; start(); }
-} catch {}
+// 비밀번호 칸 표시 여부, 새로고침해도 이름 유지
+(async () => {
+  const config = await fetch("/api/config").then((r) => r.json()).catch(() => ({}));
+  $("password-input").hidden = !config.needPassword;
+  $("password-input").required = Boolean(config.needPassword);
+  try {
+    const saved = sessionStorage.getItem("name");
+    if (saved) {
+      state.name = saved;
+      state.password = sessionStorage.getItem("password") || "";
+      start();
+    }
+  } catch {}
+})();

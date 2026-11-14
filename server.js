@@ -4,11 +4,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { createStorage } from "./storage.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const IMAGE_DIR = path.join(here, "이미지");
 const GALLERY_DIR = path.join(here, "작품");
-const GALLERY_FILE = path.join(GALLERY_DIR, "gallery.json");
 const PORT = process.env.PORT || 3000;
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 
@@ -27,14 +27,33 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(here, "public")));
 app.use("/images", express.static(IMAGE_DIR));
-app.use(
-  "/gallery-images",
-  express.static(GALLERY_DIR, {
-    setHeaders: (res) => res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'"),
-  })
-);
 
-await fs.mkdir(GALLERY_DIR, { recursive: true });
+const storage = await createStorage({ galleryDir: GALLERY_DIR });
+
+app.get("/gallery-images/:file", async (req, res) => {
+  const img = await storage.getImage(req.params.file).catch(() => null);
+  if (!img) return res.sendStatus(404);
+  res.setHeader("Content-Type", img.mime);
+  res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(img.data);
+});
+
+// 반 비밀번호: CLASS_PASSWORD 가 있으면 /api 요청마다 확인
+const CLASS_PASSWORD = process.env.CLASS_PASSWORD || "";
+
+app.get("/api/config", (_req, res) => {
+  res.json({ needPassword: Boolean(CLASS_PASSWORD) });
+});
+
+app.use("/api", (req, res, next) => {
+  let given = "";
+  try {
+    given = decodeURIComponent(req.get("x-class-password") || "");
+  } catch {}
+  if (!CLASS_PASSWORD || given === CLASS_PASSWORD) return next();
+  res.status(401).json({ error: "반 비밀번호가 틀렸어요." });
+});
 
 // ---------- Claude ----------
 
@@ -287,24 +306,6 @@ function imageProvider() {
   return null;
 }
 
-async function readGallery() {
-  try {
-    return JSON.parse(await fs.readFile(GALLERY_FILE, "utf8"));
-  } catch {
-    return [];
-  }
-}
-
-let writeQueue = Promise.resolve();
-function addToGallery(item) {
-  writeQueue = writeQueue.then(async () => {
-    const list = await readGallery();
-    list.unshift(item);
-    await fs.writeFile(GALLERY_FILE, JSON.stringify(list, null, 2));
-  });
-  return writeQueue;
-}
-
 app.post("/api/generate", async (req, res) => {
   const { name, object, keep, improve } = req.body || {};
   if (!name || !object || !keep?.trim() || !improve?.trim()) {
@@ -317,7 +318,6 @@ app.post("/api/generate", async (req, res) => {
   try {
     const { data, ext } = await generate({ object, keep: keep.slice(0, 500), improve: improve.slice(0, 500) });
     const id = Date.now() + "-" + crypto.randomBytes(3).toString("hex");
-    await fs.writeFile(path.join(GALLERY_DIR, `${id}.${ext}`), data);
     const item = {
       id,
       name: String(name).slice(0, 20),
@@ -327,7 +327,7 @@ app.post("/api/generate", async (req, res) => {
       image: `/gallery-images/${id}.${ext}`,
       createdAt: new Date().toISOString(),
     };
-    await addToGallery(item);
+    await storage.save(item, data, ext);
     res.json(item);
   } catch (err) {
     console.error("generate error:", err.message);
@@ -336,12 +336,19 @@ app.post("/api/generate", async (req, res) => {
 });
 
 app.get("/api/gallery", async (_req, res) => {
-  res.json(await readGallery());
+  try {
+    res.json(await storage.list());
+  } catch (err) {
+    console.error("gallery error:", err.message);
+    res.status(500).json({ error: "작품을 불러오지 못했어요." });
+  }
 });
 
 app.listen(PORT, () => {
   console.log(`미래 물건 상상 놀이터: http://localhost:${PORT}`);
   console.log(`챗봇: ${chatProvider() === "gemini" ? GEMINI_CHAT_MODEL : CLAUDE_MODEL}`);
   console.log(`그림: ${imageProvider()?.name.replace("generateWith", "") || "없음"}`);
+  console.log(`작품 저장: ${storage.kind}`);
+  console.log(`반 비밀번호: ${CLASS_PASSWORD ? "사용" : "없음"}`);
   if (!imageProvider()) console.warn("⚠️  API 키가 없어 그림 만들기가 동작하지 않아요.");
 });

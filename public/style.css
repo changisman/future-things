@@ -39,7 +39,8 @@ input, textarea {
   font: inherit; padding: 10px 14px; border-radius: 12px; border: 2px solid #d5daf5; width: 100%;
 }
 input:focus, textarea:focus { outline: none; border-color: #5b6cff; }
-#name-form { display: flex; gap: 8px; }
+#name-form { display: flex; flex-direction: column; gap: 10px; }
+#name-error { color: #e0464e; }
 
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px; }
 @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
